@@ -28,51 +28,6 @@ Book lookup order: UniBook's own `books` catalogue → Google Books → Open Lib
 
 Laravel 12 (PHP 8.2), MySQL, Blade + Bootstrap 5, Leaflet, Laravel Sanctum, PHPUnit, Postman.
 
-## Setup (XAMPP)
-
-1. Requirements: PHP 8.2+, Composer, MySQL (XAMPP works).
-2. Install the dependencies:
-   ```bash
-   composer install
-   ```
-3. Create your environment file and app key:
-   ```bash
-   cp .env.example .env
-   php artisan key:generate
-   ```
-4. Create a MySQL database named `unibook`, then set `DB_*` in `.env` (XAMPP default: user `root`, no password).
-5. Add your own API keys to `.env` (never commit them):
-   - `GOOGLE_BOOKS_API_KEY` from the Google Cloud console (Books API)
-   - `OCR_SPACE_API_KEY` from https://ocr.space/ocrapi/freekey (the demo key `helloworld` is heavily rate limited)
-   - `OPENROUTER_API_KEY` from https://openrouter.ai/keys (optional: without it, the photo text is read by built-in rules)
-6. Create the tables and the cover folder link:
-   ```bash
-   php artisan migrate
-   ```
-7. Optional data:
-   ```bash
-   php artisan db:seed --class=BookCatalogSeeder   # 10 real books via the lookup service (needs internet)
-   php artisan db:seed --class=SampleDataSeeder    # demo users and listings, password: password
-   ```
-8. Open http://localhost/ICT651_GP_Assignment/public (XAMPP) or run `php artisan serve` and open http://127.0.0.1:8000.
-
-Optional housekeeping: `php artisan covers:prune` deletes unused scanned photos (also scheduled daily).
-
-## Testing
-
-```bash
-php artisan test
-```
-
-All external APIs are faked in the tests, so they run offline.
-
-End-to-end API test with the Postman CLI (run `SampleDataSeeder` first):
-
-```bash
-cd postman
-postman collection run UniBook.postman_collection.json --working-dir .
-```
-
 ## Main API endpoints
 
 | Module | Endpoint | Purpose |
