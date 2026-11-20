@@ -24,6 +24,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // API gateway: every /api request is JSON.
         $middleware->api(prepend: [ForceJsonResponse::class]);
+
+        // Hosting (e.g. Azure App Service) ends HTTPS at its proxy: trust it so links stay https://.
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Uniform error format for the API: { success: false, message, data }
