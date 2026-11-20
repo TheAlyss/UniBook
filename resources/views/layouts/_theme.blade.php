@@ -153,6 +153,8 @@ body { padding-bottom: 0; }
 .ub-badge-source.catalogue { background: var(--ub-primary-soft); color: var(--ub-primary); }
 .ub-match-high { background: #e3f5ec; color: var(--ub-success); }
 .ub-match-medium { background: #fdf1dc; color: var(--ub-warning); }
+.ub-badge-banned, .ub-badge-hidden { background: #fde8ea; color: #b02a37; }
+.ub-badge-admin { background: var(--ub-accent-soft); color: var(--ub-price); }
 .ub-match-low { background: #efeff2; color: #6f6f7a; }
 .ub-badge-ai { background: linear-gradient(90deg, var(--ub-primary-soft), var(--ub-accent-soft)); color: var(--ub-primary); }
 

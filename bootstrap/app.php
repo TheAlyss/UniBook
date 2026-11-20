@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\ForceJsonResponse;
+use App\Http\Middleware\LogoutBannedUsers;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -27,6 +29,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Hosting (e.g. Azure App Service) ends HTTPS at its proxy: trust it so links stay https://.
         $middleware->trustProxies(at: '*');
+
+        // Admin area + banned users (signed out on their next page).
+        $middleware->alias(['admin' => EnsureAdmin::class]);
+        $middleware->web(append: [LogoutBannedUsers::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Uniform error format for the API: { success: false, message, data }

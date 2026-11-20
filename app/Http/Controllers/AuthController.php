@@ -50,6 +50,14 @@ class AuthController extends Controller
                 ->onlyInput('email');
         }
 
+        if (Auth::user()->isBanned()) {
+            Auth::logout();
+
+            return back()
+                ->withErrors(['email' => 'This account has been suspended. Please contact the UniBook admin.'])
+                ->onlyInput('email');
+        }
+
         $request->session()->regenerate();
 
         return redirect()->intended(route('home'))->with('success', 'Welcome back, ' . Auth::user()->name . '!');

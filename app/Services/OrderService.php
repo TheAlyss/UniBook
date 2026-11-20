@@ -38,6 +38,9 @@ class OrderService
             if ($listing->status !== 'available') {
                 throw new OrderException('Sorry, this book has already been booked by someone else.');
             }
+            if ($listing->isHiddenFromPublic()) {
+                throw new OrderException('Sorry, this book is no longer available.');
+            }
 
             $order = Order::create([
                 'listing_id' => $listing->id,
@@ -159,9 +162,10 @@ class OrderService
         return $order->fresh();
     }
 
+    /** The buyer, the seller or an admin (e.g. an order stuck because a party disappeared). */
     public function cancel(Order $order, User $user): Order
     {
-        if (! $order->isParty($user)) {
+        if (! $order->isParty($user) && ! $user->isAdmin()) {
             throw new OrderException('You cannot cancel this order.', 403);
         }
         if ($order->status !== 'pending') {

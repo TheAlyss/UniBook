@@ -46,7 +46,25 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_admin' => 'boolean',
+            'banned_at' => 'datetime',
         ];
+    }
+
+    public function isAdmin(): bool
+    {
+        return (bool) $this->is_admin;
+    }
+
+    public function isBanned(): bool
+    {
+        return $this->banned_at !== null;
+    }
+
+    /** Any order where this user is the buyer or the seller (admins may only delete users without orders). */
+    public function hasOrders(): bool
+    {
+        return $this->purchases()->exists() || $this->sales()->exists();
     }
 
     public function listings(): HasMany

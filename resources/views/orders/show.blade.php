@@ -59,7 +59,7 @@
     <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mt-2 mb-3">
         <div>
             <h1 class="h3 fw-bold mb-1">Order #{{ $order->id }}</h1>
-            <div class="ub-muted">Booked {{ $order->created_at->format('j M Y, g:i A') }} · You are the {{ $isSeller ? 'seller' : 'buyer' }}</div>
+            <div class="ub-muted">Booked {{ $order->created_at->format('j M Y, g:i A') }} · You are the {{ $isSeller ? 'seller' : ($isBuyer ? 'buyer' : 'admin') }}</div>
         </div>
         <span class="ub-badge ub-status {{ $statusClass }}">{{ $order->statusLabel() }}</span>
     </div>

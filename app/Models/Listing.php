@@ -64,7 +64,20 @@ class Listing extends Model
 
     protected function casts(): array
     {
-        return ['price' => 'decimal:2'];
+        return ['price' => 'decimal:2', 'hidden_at' => 'datetime'];
+    }
+
+    /** Hidden by an admin, or the seller is banned: not shown to the public and cannot be booked. */
+    public function isHiddenFromPublic(): bool
+    {
+        return $this->hidden_at !== null || (bool) $this->user?->isBanned();
+    }
+
+    /** The seller and admins can still open a hidden listing; everyone else gets 404. */
+    public function visibleTo(?User $viewer): bool
+    {
+        return ! $this->isHiddenFromPublic()
+            || ($viewer && ($viewer->id === $this->user_id || $viewer->isAdmin()));
     }
 
     public function user(): BelongsTo
@@ -83,9 +96,12 @@ class Listing extends Model
         return $this->orders()->active()->exists();
     }
 
+    /** For sale and shown to the public: not hidden by an admin, seller not banned. */
     public function scopeAvailable(Builder $query): Builder
     {
-        return $query->where('status', 'available');
+        return $query->where('listings.status', 'available')
+            ->whereNull('listings.hidden_at')
+            ->whereDoesntHave('user', fn (Builder $q) => $q->whereNotNull('banned_at'));
     }
 
     /**

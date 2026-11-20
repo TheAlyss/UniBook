@@ -50,9 +50,12 @@ class ListingController extends Controller
     }
 
     /** GET /api/listings/{id} */
-    public function show(Listing $listing)
+    public function show(Request $request, Listing $listing)
     {
-        return $this->ok(new ListingResource($listing->load('user')));
+        $listing->load('user');
+        abort_unless($listing->visibleTo($request->user()), 404);
+
+        return $this->ok(new ListingResource($listing));
     }
 
     /** POST /api/listings/scan  (A: photo -> OCR.space -> Google Books suggestions) */

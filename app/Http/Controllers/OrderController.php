@@ -37,7 +37,9 @@ class OrderController extends Controller
         if ($listing->user_id === $request->user()->id) {
             return redirect()->route('books.show', $listing)->with('error', 'You cannot book your own listing.');
         }
-        if ($listing->status !== 'available') {
+        if ($listing->status !== 'available' || $listing->isHiddenFromPublic()) {
+            abort_if($listing->isHiddenFromPublic(), 404);
+
             return redirect()->route('books.show', $listing)->with('error', 'Sorry, this book is no longer available.');
         }
 

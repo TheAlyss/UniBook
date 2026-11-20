@@ -24,6 +24,9 @@ class AuthController extends Controller
         if (! $user || ! Hash::check($data['password'], $user->password)) {
             return $this->fail('The email or password you entered is incorrect.', 401);
         }
+        if ($user->isBanned()) {
+            return $this->fail('This account has been suspended. Please contact the UniBook admin.', 403);
+        }
 
         $token = $user->createToken($data['device_name'] ?? 'api')->plainTextToken;
 

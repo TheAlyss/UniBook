@@ -28,6 +28,9 @@
             <a class="ub-nav-link {{ request()->routeIs('listings.create') ? 'active' : '' }}" href="{{ route('listings.create') }}">Sell a Book</a>
             @auth
                 <a class="ub-nav-link {{ request()->routeIs('orders.*') ? 'active' : '' }}" href="{{ route('orders.index') }}">My Orders</a>
+                @if (auth()->user()->isAdmin())
+                    <a class="ub-nav-link {{ request()->routeIs('admin.*') ? 'active' : '' }}" href="{{ route('admin.dashboard') }}"><i class="bi bi-shield-lock me-1"></i>Admin</a>
+                @endif
             @endauth
         </div>
 
@@ -44,6 +47,9 @@
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="{{ route('listings.mine') }}"><i class="bi bi-collection me-2"></i>My Listings</a></li>
                         <li><a class="dropdown-item" href="{{ route('orders.index') }}"><i class="bi bi-receipt me-2"></i>My Orders</a></li>
+                        @if ($user->isAdmin())
+                            <li><a class="dropdown-item" href="{{ route('admin.dashboard') }}"><i class="bi bi-shield-lock me-2"></i>Admin</a></li>
+                        @endif
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <form method="POST" action="{{ route('logout') }}">

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\ListingController;
@@ -61,4 +62,30 @@ Route::middleware('auth')->group(function () {
     Route::post('/orders/{order}/complete', [OrderController::class, 'complete'])->name('orders.complete');
     Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
     Route::post('/orders/{order}/rate', [OrderController::class, 'rate'])->name('orders.rate');
+});
+
+// Admin area (only users with is_admin; create the first admin with: php artisan unibook:make-admin <email>)
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', Admin\DashboardController::class)->name('dashboard');
+
+    Route::get('/users', [Admin\UserController::class, 'index'])->name('users.index');
+    Route::get('/users/{user}', [Admin\UserController::class, 'show'])->name('users.show');
+    Route::get('/users/{user}/edit', [Admin\UserController::class, 'edit'])->name('users.edit');
+    Route::put('/users/{user}', [Admin\UserController::class, 'update'])->name('users.update');
+    Route::delete('/users/{user}', [Admin\UserController::class, 'destroy'])->name('users.destroy');
+    Route::post('/users/{user}/ban', [Admin\UserController::class, 'ban'])->name('users.ban');
+    Route::post('/users/{user}/unban', [Admin\UserController::class, 'unban'])->name('users.unban');
+
+    Route::get('/listings', [Admin\ListingController::class, 'index'])->name('listings.index');
+    Route::post('/listings/{listing}/hide', [Admin\ListingController::class, 'hide'])->name('listings.hide');
+    Route::post('/listings/{listing}/unhide', [Admin\ListingController::class, 'unhide'])->name('listings.unhide');
+    Route::delete('/listings/{listing}', [Admin\ListingController::class, 'destroy'])->name('listings.destroy');
+
+    Route::get('/orders', [Admin\OrderController::class, 'index'])->name('orders.index');
+    Route::post('/orders/{order}/cancel', [Admin\OrderController::class, 'cancel'])->name('orders.cancel');
+
+    Route::get('/books', [Admin\BookController::class, 'index'])->name('books.index');
+    Route::get('/books/{book}/edit', [Admin\BookController::class, 'edit'])->name('books.edit');
+    Route::put('/books/{book}', [Admin\BookController::class, 'update'])->name('books.update');
+    Route::delete('/books/{book}', [Admin\BookController::class, 'destroy'])->name('books.destroy');
 });

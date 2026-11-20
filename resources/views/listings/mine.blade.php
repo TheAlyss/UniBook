@@ -43,6 +43,7 @@
                     <div class="flex-grow-1 min-w-0">
                         <div class="d-flex flex-wrap align-items-center gap-1 mb-1">
                             <span class="ub-badge {{ $statusClass[$listing->status] ?? 'ub-badge-cat' }}">{{ $listing->statusLabel() }}</span>
+                            @if ($listing->hidden_at)<span class="ub-badge ub-badge-hidden" title="Buyers cannot see this listing. Contact the UniBook admin.">Hidden by admin</span>@endif
                             @if ($listing->course_code)<span class="ub-badge ub-badge-course">{{ $listing->course_code }}</span>@endif
                             <span class="ub-badge ub-badge-cat">{{ $listing->category }}</span>
                         </div>

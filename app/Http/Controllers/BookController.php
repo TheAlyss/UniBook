@@ -66,9 +66,11 @@ class BookController extends Controller
             ->all();
     }
 
-    public function show(Listing $listing)
+    public function show(Request $request, Listing $listing)
     {
         $listing->load('user');
+        // Hidden by an admin or seller banned: only the seller and admins can still open it.
+        abort_unless($listing->visibleTo($request->user()), 404);
 
         // Same course if the book has one; if there are none (or no course), the same category.
         $relatedBy = fn (string $column, string $value) => Listing::available()
