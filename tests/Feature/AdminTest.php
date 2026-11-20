@@ -182,6 +182,11 @@ class AdminTest extends TestCase
 
     public function test_make_admin_command(): void
     {
+        $this->artisan('unibook:make-admin', ['email' => 'admin@email.com', '--name' => 'Admin'])
+            ->expectsQuestion('Password (at least 8 characters, hidden)', '')
+            ->assertFailed();
+        $this->assertNull(User::where('email', 'admin@email.com')->first());
+
         $this->artisan('unibook:make-admin', ['email' => 'admin@email.com', '--name' => 'Admin', '--password' => 'password123'])
             ->assertSuccessful();
 

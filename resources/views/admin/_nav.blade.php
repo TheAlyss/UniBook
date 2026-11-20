@@ -5,8 +5,10 @@
                          border-radius: 999px; padding: 4px; width: fit-content; max-width: 100%; }
         .ub-admin-tabs a { border-radius: 999px; color: var(--ub-muted); font-weight: 600; padding: .4rem .9rem; text-decoration: none; font-size: .9rem; }
         .ub-admin-tabs a.active { background: var(--ub-primary); color: #fff; }
-        .ub-admin-table { margin: 0; }
-        .ub-admin-table th { font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--ub-muted); font-weight: 700; background: var(--ub-bg); }
+        .ub-admin-table { margin: 0; --bs-table-bg: #fff; --bs-table-hover-bg: #faf8fd; }
+        .ub-admin-table th { font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--ub-muted); font-weight: 700; background: #f6f3fb; }
+        .ub-admin-table tbody tr:hover > * { background: #faf8fd; }
+        .ub-card:has(> .table-responsive > .ub-admin-table) { background: #fff; border: 1px solid #ddd5ea; box-shadow: 0 4px 16px rgba(76, 42, 133, .10); }
         .ub-admin-table td { vertical-align: middle; }
         .ub-admin-table .ub-cover { width: 40px; flex: 0 0 40px; }
         .ub-stat { padding: 1rem 1.1rem; }

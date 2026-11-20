@@ -34,6 +34,11 @@ Artisan::command('unibook:make-admin {email} {--name= : Name for a new account} 
     if (! $user) {
         $name = $this->option('name') ?: $this->ask('Name', 'Admin');
         $password ??= $this->secret('Password (at least 8 characters, hidden)');
+        if ($password === null || $password === '') {
+            $this->error('A new account needs a password. If the hidden prompt does not work in this terminal, add --password="..."');
+
+            return 1;
+        }
     } elseif ($password === null) {
         $password = $this->secret('New password (leave empty to keep the current one)') ?: null;
     }
