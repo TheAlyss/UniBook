@@ -1,0 +1,733 @@
+{
+    "info": {
+        "name": "UniBook API (ICT651)",
+        "description": "End-to-end test of the UniBook REST API: login -> scan -> create listing -> search -> update -> order -> meetup (Nominatim) -> route (OSRM) -> seller completes -> buyer rates -> delete.\n\nRun the folders in order (Collection Runner or `postman collection run`). Uses the seeded users (password: `password`). Payment is cash at the meetup, so there is no payment step.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost/ICT651_GP_Assignment/public"
+        },
+        {
+            "key": "sellerEmail",
+            "value": "hafiz@student.uitm.edu.my"
+        },
+        {
+            "key": "buyerEmail",
+            "value": "danial@student.uitm.edu.my"
+        },
+        {
+            "key": "password",
+            "value": "password"
+        }
+    ],
+    "event": [
+        {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "// Gateway contract: every API response has the same JSON shape.",
+                    "if (pm.request.url.getPath().includes('/api/')) {",
+                    "  pm.test('Uniform JSON envelope {success, message, data}', function () {",
+                    "    const body = pm.response.json();",
+                    "    pm.expect(body).to.have.property('success');",
+                    "    pm.expect(body).to.have.property('message');",
+                    "    pm.expect(body).to.have.property('data');",
+                    "  });",
+                    "}"
+                ]
+            }
+        }
+    ],
+    "item": [
+        {
+            "name": "0. Gateway & Auth",
+            "item": [
+                {
+                    "name": "Request without token is rejected (401)",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": "{{baseUrl}}/api/listings"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+                                    "pm.test('success is false', () => pm.expect(pm.response.json().success).to.be.false);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Login as seller (Hafiz)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"{{sellerEmail}}\",\n  \"password\": \"{{password}}\",\n  \"device_name\": \"postman\"\n}"
+                        },
+                        "url": "{{baseUrl}}/api/login"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "const token = pm.response.json().data.token;",
+                                    "pm.test('Token returned', () => pm.expect(token).to.be.a('string'));",
+                                    "pm.collectionVariables.set('sellerToken', token);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Login as buyer (Danial)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"{{buyerEmail}}\",\n  \"password\": \"{{password}}\",\n  \"device_name\": \"postman\"\n}"
+                        },
+                        "url": "{{baseUrl}}/api/login"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "pm.collectionVariables.set('buyerToken', pm.response.json().data.token);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Wrong password (401)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"{{buyerEmail}}\",\n  \"password\": \"wrong-password\"\n}"
+                        },
+                        "url": "{{baseUrl}}/api/login"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "A. Scan & Listing (member A)",
+            "item": [
+                {
+                    "name": "A1. POST /api/listings/scan (OCR.space + Google Books)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{sellerToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "image",
+                                    "type": "file",
+                                    "src": "sample-back-cover.jpg"
+                                }
+                            ]
+                        },
+                        "url": "{{baseUrl}}/api/listings/scan"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "// 200 = matches found, 404 = text read but no book, 503 = OCR demo key busy (external service).",
+                                    "pm.test('Scan handled (200 / 404 / 422 / 503)', () => pm.expect(pm.response.code).to.be.oneOf([200, 404, 422, 503]));",
+                                    "if (pm.response.code === 200) {",
+                                    "  pm.test('ISBN read from the photo', () => pm.expect(pm.response.json().data.isbn).to.eql('9781449358068'));",
+                                    "  pm.test('Up to 3 suggestions', () => pm.expect(pm.response.json().data.results.length).to.be.within(1, 3));",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "A2. POST /api/listings (ISBN only, details from Google Books)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{sellerToken}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"isbn\": \"978-1-4493-5806-8\",\n  \"course\": \"ict651\",\n  \"price\": 42,\n  \"condition\": \"Good\",\n  \"category\": \"Textbook\",\n  \"description\": \"Created by the Postman end-to-end test.\"\n}"
+                        },
+                        "url": "{{baseUrl}}/api/listings"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                                    "const d = pm.response.json().data;",
+                                    "pm.test('Title filled from the book API', () => pm.expect(d.title).to.include('RESTful Web APIs'));",
+                                    "pm.test('Course code normalised', () => pm.expect(d.course_code).to.eql('ICT651'));",
+                                    "pm.collectionVariables.set('listingId', d.id);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "A3. POST /api/listings (validation error 422)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{sellerToken}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"course\": \"IT1\",\n  \"price\": 0\n}"
+                        },
+                        "url": "{{baseUrl}}/api/listings"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('422 Unprocessable', () => pm.response.to.have.status(422));",
+                                    "pm.test('Field errors listed', () => pm.expect(pm.response.json().data.errors).to.have.property('course'));"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "B. Catalogue (member B)",
+            "item": [
+                {
+                    "name": "B1. GET /api/listings?q=ICT651&category=Textbook",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{buyerToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/listings?q=ICT651&category=Textbook",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "listings"
+                            ],
+                            "query": [
+                                {
+                                    "key": "q",
+                                    "value": "ICT651"
+                                },
+                                {
+                                    "key": "category",
+                                    "value": "Textbook"
+                                }
+                            ]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "const ids = pm.response.json().data.map(l => l.id);",
+                                    "pm.test('New listing is searchable', () => pm.expect(ids).to.include(Number(pm.collectionVariables.get('listingId'))));",
+                                    "pm.test('Only Textbook listings for ICT651', () => pm.response.json().data.forEach(l => { pm.expect(l.category).to.eql('Textbook'); }));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "B2. PUT /api/listings/{id} (change price)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{sellerToken}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"price\": 40\n}"
+                        },
+                        "url": "{{baseUrl}}/api/listings/{{listingId}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "pm.test('Price updated', () => pm.expect(pm.response.json().data.price).to.eql(40));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "B3. PUT /api/listings/{id} by another user (403)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{buyerToken}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"price\": 1\n}"
+                        },
+                        "url": "{{baseUrl}}/api/listings/{{listingId}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "C. Orders (member C) - cash at the meetup",
+            "item": [
+                {
+                    "name": "C1. POST /api/orders (buyer books the listing)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{buyerToken}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"listing_id\": {{listingId}},\n  \"note\": \"Postman test booking\"\n}"
+                        },
+                        "url": "{{baseUrl}}/api/orders"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                                    "const d = pm.response.json().data;",
+                                    "pm.test('Order is booked, paid in cash at the meetup', () => { pm.expect(d.status).to.eql('pending'); pm.expect(d.payment).to.eql('cash_on_meetup'); });",
+                                    "pm.collectionVariables.set('orderId', d.id);"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "C2. POST /api/orders again (409: already booked)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{buyerToken}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"listing_id\": {{listingId}}\n}"
+                        },
+                        "url": "{{baseUrl}}/api/orders"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('409 Conflict', () => pm.response.to.have.status(409));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "C3. POST /api/meetups (Nominatim: place -> nearest campus point)",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const t = new Date(Date.now() + 24 * 3600 * 1000);",
+                                    "t.setHours(15, 0, 0, 0);",
+                                    "pm.collectionVariables.set('meetupTime', t.toISOString());"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                                    "const d = pm.response.json().data;",
+                                    "pm.test('Place found with Nominatim', () => pm.expect(d.from.place).to.include('Arau'));",
+                                    "pm.test('Nearest campus meetup point chosen', () => { pm.expect(d.point).to.be.a('string'); pm.expect(d.distance_m).to.be.above(0); });",
+                                    "pm.collectionVariables.set('meetupId', d.id);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{buyerToken}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"order_id\": {{orderId}},\n  \"meetup_time\": \"{{meetupTime}}\",\n  \"place\": \"Arau\"\n}"
+                        },
+                        "url": "{{baseUrl}}/api/meetups"
+                    }
+                },
+                {
+                    "name": "C4. GET /api/meetups/{id}/route (OSRM distance + route)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{buyerToken}}"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/meetups/{{meetupId}}/route"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "const d = pm.response.json().data;",
+                                    "pm.test('Road distance and time', () => { pm.expect(d.distance_m).to.be.above(0); pm.expect(['road', 'straight_line']).to.include(d.method); });",
+                                    "if (d.method === 'road') pm.test('Route line for the map', () => pm.expect(d.geometry.length).to.be.above(1));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "C5. PUT /api/orders/{id} by buyer (403: only seller completes)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{buyerToken}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"status\": \"completed\"\n}"
+                        },
+                        "url": "{{baseUrl}}/api/orders/{{orderId}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "C6. PUT /api/orders/{id} by seller (met, cash received)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{sellerToken}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"status\": \"completed\"\n}"
+                        },
+                        "url": "{{baseUrl}}/api/orders/{{orderId}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "pm.test('Order completed', () => pm.expect(pm.response.json().data.status).to.eql('completed'));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "C7. PUT /api/orders/{id} by buyer (rate the seller)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{buyerToken}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"rating\": 5,\n  \"review\": \"Postman test: smooth meetup.\"\n}"
+                        },
+                        "url": "{{baseUrl}}/api/orders/{{orderId}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "pm.test('Rating saved', () => pm.expect(pm.response.json().data.rating).to.eql(5));"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "D. Clean up",
+            "item": [
+                {
+                    "name": "D1. DELETE /api/listings/{id}",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{sellerToken}}"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/listings/{{listingId}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "D2. GET deleted listing (404)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{buyerToken}}"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/listings/{{listingId}}"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('404 Not Found', () => pm.response.to.have.status(404));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "D3. Logout seller",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{sellerToken}}"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/logout"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "D4. Logout buyer",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{buyerToken}}"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/logout"
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
