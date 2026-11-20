@@ -58,6 +58,89 @@ class BooksService
                 Cache::forget(self::cacheKey($source, $query, $limit));
             }
         }
+        if ($isbn = self::normaliseIsbn($query)) {
+            Cache::forget(self::infoCacheKey($isbn, null));
+        }
+    }
+
+    /**
+     * Module B: extra Google Books information shown with one listing (GET /api/listings/{id}).
+     * Searches by ISBN, or by title when there is no ISBN (local modules often list a different author than
+     * Google, so the author is not searched); a title result only counts when
+     * TitleMatcher agrees it is the same book. Cached for a day; null = Google Books has nothing.
+     *
+     * @return array{google_id: ?string, description: ?string, page_count: ?int, categories: list<string>,
+     *               language: ?string, published_date: ?string, average_rating: ?float, info_link: ?string,
+     *               source: string}|null
+     */
+    public function bookInfo(?string $isbn, ?string $title = null): ?array
+    {
+        $isbn = $isbn ? self::normaliseIsbn($isbn) : null;
+        $title = trim((string) $title);
+        if (! $isbn && $title === '') {
+            return null;
+        }
+
+        $key = self::infoCacheKey($isbn, $isbn ? null : $title);
+        if (Cache::has($key)) {
+            return Cache::get($key);
+        }
+
+        $params = array_filter([
+            'q' => $isbn ? "isbn:{$isbn}" : 'intitle:' . $title,
+            'maxResults' => $isbn ? 1 : 5,
+            'printType' => 'books',
+            'key' => config('services.google_books.key'),
+        ]);
+
+        try {
+            $response = Http::timeout(8)->acceptJson()->get(self::GOOGLE_URL, $params);
+        } catch (ConnectionException $e) {
+            Log::warning('Google Books unreachable', ['error' => $e->getMessage()]);
+            return null;
+        }
+        if ($response->failed()) {
+            Log::warning('Google Books request failed', ['status' => $response->status()]);
+            return null;
+        }
+
+        $item = collect($response->json('items', []))->first(function (array $item) use ($isbn, $title) {
+            $info = $item['volumeInfo'] ?? [];
+            if ($isbn) {
+                return true;
+            }
+            $found = trim(($info['title'] ?? '') . ' ' . ($info['subtitle'] ?? ''));
+
+            return $found !== '' && \App\Support\TitleMatcher::isMatch($title, $found);
+        });
+        if ($item === null) {
+            return null; // not cached: Google may know the book later
+        }
+
+        $info = $item['volumeInfo'] ?? [];
+        $description = isset($info['description'])
+            ? trim(html_entity_decode(strip_tags($info['description']), ENT_QUOTES))
+            : null;
+
+        $result = [
+            'google_id' => $item['id'] ?? null,
+            'description' => $description !== null && $description !== '' ? mb_strimwidth($description, 0, 1000, '...') : null,
+            'page_count' => isset($info['pageCount']) ? (int) $info['pageCount'] : null,
+            'categories' => array_values($info['categories'] ?? []),
+            'language' => $info['language'] ?? null,
+            'published_date' => $info['publishedDate'] ?? null,
+            'average_rating' => isset($info['averageRating']) ? (float) $info['averageRating'] : null,
+            'info_link' => isset($info['infoLink']) ? str_replace('http://', 'https://', $info['infoLink']) : null,
+            'source' => 'Google Books',
+        ];
+        Cache::put($key, $result, now()->addDay());
+
+        return $result;
+    }
+
+    private static function infoCacheKey(?string $isbn, ?string $text): string
+    {
+        return 'books:info:' . md5($isbn ? "isbn:{$isbn}" : 'text:' . mb_strtolower((string) $text));
     }
 
     /** First match for an ISBN, or null. */

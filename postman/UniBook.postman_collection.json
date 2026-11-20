@@ -318,6 +318,43 @@
                     ]
                 },
                 {
+                    "name": "B1b. GET /api/listings/{id} (listing + Google Books details)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{buyerToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/listings/{{listingId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "listings",
+                                "{{listingId}}"
+                            ]
+                        }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                                    "const data = pm.response.json().data;",
+                                    "pm.test('Returns the listing', () => pm.expect(data.id).to.eql(Number(pm.collectionVariables.get('listingId'))));",
+                                    "pm.test('Has book_info from Google Books', () => { pm.expect(data).to.have.property('book_info'); pm.expect(data.book_info).to.not.be.null; pm.expect(data.book_info.source).to.eql('Google Books'); });"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
                     "name": "B2. PUT /api/listings/{id} (change price)",
                     "request": {
                         "method": "PUT",

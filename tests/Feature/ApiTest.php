@@ -126,6 +126,55 @@ class ApiTest extends TestCase
             ->assertJsonPath('data.price', 30);
     }
 
+    public function test_show_adds_google_books_details_found_by_isbn(): void
+    {
+        Http::fake(['www.googleapis.com/*' => Http::response(['items' => [['id' => 'abc123', 'volumeInfo' => [
+            'title' => 'RESTful Web APIs', 'description' => '<p>Learn <b>REST</b> &amp; hypermedia.</p>',
+            'pageCount' => 406, 'categories' => ['Computers'], 'language' => 'en', 'publishedDate' => '2013-09-12',
+            'infoLink' => 'http://books.google.com/books?id=abc123',
+        ]]]])]);
+        $listing = $this->makeListing(overrides: ['isbn' => '978-1-4493-5806-8', 'title' => 'RESTful Web APIs']);
+
+        $this->withToken($this->tokenFor($listing->user))->getJson("/api/listings/{$listing->id}")
+            ->assertOk()
+            ->assertJsonPath('message', 'Listing with details from Google Books.')
+            ->assertJsonPath('data.id', $listing->id)
+            ->assertJsonPath('data.book_info.description', 'Learn REST & hypermedia.')
+            ->assertJsonPath('data.book_info.page_count', 406)
+            ->assertJsonPath('data.book_info.categories', ['Computers'])
+            ->assertJsonPath('data.book_info.info_link', 'https://books.google.com/books?id=abc123')
+            ->assertJsonPath('data.book_info.source', 'Google Books');
+
+        Http::assertSent(fn ($request) => str_contains(urldecode($request->url()), 'q=isbn:9781449358068'));
+    }
+
+    public function test_show_without_isbn_ignores_unrelated_google_results(): void
+    {
+        Http::fake(['www.googleapis.com/*' => Http::response(['items' => [['id' => 'x', 'volumeInfo' => [
+            'title' => 'Bahasa Mandarin 2', 'description' => 'Another book.',
+        ]]]])]);
+        $listing = $this->makeListing(overrides: ['isbn' => null, 'title' => 'Bahasa Mandarin Pengurusan']);
+
+        $this->withToken($this->tokenFor($listing->user))->getJson("/api/listings/{$listing->id}")
+            ->assertOk()
+            ->assertJsonPath('data.title', 'Bahasa Mandarin Pengurusan')
+            ->assertJsonPath('data.book_info', null)
+            ->assertJsonPath('message', 'Listing found. Google Books has no extra details for this book.');
+
+        Http::assertSent(fn ($request) => str_contains(urldecode($request->url()), 'intitle:Bahasa Mandarin Pengurusan'));
+    }
+
+    public function test_show_still_returns_the_listing_when_google_books_times_out(): void
+    {
+        Http::fake(fn () => throw new \Illuminate\Http\Client\ConnectionException('timed out'));
+        $listing = $this->makeListing(overrides: ['isbn' => '9781449358068']);
+
+        $this->withToken($this->tokenFor($listing->user))->getJson("/api/listings/{$listing->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $listing->id)
+            ->assertJsonPath('data.book_info', null);
+    }
+
     public function test_other_users_cannot_update_or_delete_a_listing(): void
     {
         $listing = $this->makeListing();

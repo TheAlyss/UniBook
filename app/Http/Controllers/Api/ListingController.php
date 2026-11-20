@@ -49,13 +49,20 @@ class ListingController extends Controller
         return $this->ok(ListingResource::collection($listings), $message);
     }
 
-    /** GET /api/listings/{id} */
-    public function show(Request $request, Listing $listing)
+    /**
+     * GET /api/listings/{id}  (B: Read, Google Books)
+     * The listing plus "book_info" from Google Books (description, pages, categories, ...),
+     * found by ISBN or by title. The listing is still returned when Google Books has nothing or fails.
+     */
+    public function show(Request $request, Listing $listing, BooksService $books)
     {
         $listing->load('user');
         abort_unless($listing->visibleTo($request->user()), 404);
 
-        return $this->ok(new ListingResource($listing));
+        $info = $books->bookInfo($listing->isbn, $listing->title);
+        $data = (new ListingResource($listing))->resolve($request) + ['book_info' => $info];
+
+        return $this->ok($data, $info ? 'Listing with details from Google Books.' : 'Listing found. Google Books has no extra details for this book.');
     }
 
     /** POST /api/listings/scan  (A: photo -> OCR.space -> Google Books suggestions) */
