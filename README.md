@@ -40,4 +40,4 @@ Laravel 12 (PHP 8.2), MySQL, Blade + Bootstrap 5, Leaflet, Laravel Sanctum, PHPU
 ## Notes
 
 - Payment is cash at the meetup; there is no payment gateway.
-- This is a student prototype for coursework. It runs locally and has not been prepared for public deployment.
+- This is a student prototype for coursework.
