@@ -19,6 +19,16 @@ ln -s "$DATA/covers" "$APP/public/uploads/covers"
 ln -s "$DATA/scans" "$APP/storage/app/private/scans"
 
 # 3. Writable folders, then create or update the tables.
-chmod -R 777 "$DATA" "$APP/storage" "$APP/bootstrap/cache"
+# Only the data folders and the database file: a recursive chmod over every photo on
+# Azure's network storage made each cold start slower as more photos were uploaded.
+# New photos are created by PHP itself, so they are writable without it.
+chmod 777 "$DATA" "$DATA/covers" "$DATA/scans"
+chmod 666 "$DATA/database.sqlite"
+chmod -R 777 "$APP/storage" "$APP/bootstrap/cache"
 cd "$APP"
 php artisan migrate --force
+
+# 4. Cache config, routes and views once per start, so each request reads fewer files.
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
